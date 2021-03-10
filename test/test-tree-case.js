@@ -147,7 +147,7 @@ async function main1() {
 
 
   describe("General Tree Variable Lengths", function() {
-    this.timeout(5000);
+    this.timeout(20000)
     it('should parse effectively', async () => {
       await main();
 

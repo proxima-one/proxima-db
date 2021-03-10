@@ -4,6 +4,10 @@ const {BLAKE2b} = bcrypto;
 const {Database, Table} = require("../proxima")
 const randomBytes = require('randombytes');
 
+
+function random(min, max) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
   function create_db() {
     return new Database()
   }
@@ -12,6 +16,14 @@ const randomBytes = require('randombytes');
     let table = db.create(name)
     return table
   }
+
+  //query
+
+  //commit,insert, checkout
+
+  //stats
+
+  //scans
 
   async function multiple_table_access_test() {
     let name = "newtable"
@@ -78,6 +90,61 @@ const randomBytes = require('randombytes');
     //console.log("Finishing")
   }
 
+
+  async function test3() {
+    //cleanup  database/table
+    let table_name = "test"
+    let db = create_db()
+    let table = await db.open(table_name)
+    let stats = await table.stat()
+    let entries = await random_entries(100)
+    table.transaction()
+    //time
+    for (const [key, value] of entries) {
+      let resp = await table.put(key, value, true)
+      //stats = await table.stat()
+    }
+    //time
+    await table.commit()
+
+
+    for (var i = 0; i < 10; i++) {
+      let r = await scanTest(table, entries)
+      //await searchTest(table, entries)
+    }
+
+    let compactResponse = await table.compact()
+    stats = await table.stat()
+    await table.close()
+  }
+
+  async function scanTest(table, entries) {
+    let direction = (Math.random() < 0.5)
+    let limit = random(50,250)
+    let number = random(10,200)//number 50-len
+
+    let first = 0
+    let last = number-1
+    let prove = false
+    //generate expected
+    //sort
+
+    let resp = await table.scan(first, last, limit, prove)
+    console.log(resp.length, limit, number, entries.length)
+    //assert equal
+    //assertions
+  }
+
+  function searchTest(table, entries) {
+
+    let limit = 0
+    let prove = 0
+    //how
+
+    let resp = table.query(first, last, limit, prove)
+    //assert equal
+  }
+
   async function test2() {
     let table_name = "test"
     let db = create_db()
@@ -92,7 +159,7 @@ const randomBytes = require('randombytes');
   }
 
   describe("Proxima", function() {
-    this.timeout(5000);
+    this.timeout(20000)
 
     it('should test tree', async () => {
       await test();
@@ -104,5 +171,9 @@ const randomBytes = require('randombytes');
 
     it('should test table access', async() => {
       await multiple_table_access_test();
+    });
+
+    it('should test advanced', async () => {
+      await test3();
     });
 })

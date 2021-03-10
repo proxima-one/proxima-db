@@ -218,11 +218,13 @@ async getHistory(root = null) {
 }
 
 async compact() {
-  await this.index.compact();
+  let resp = await this.index.compact();
+  let root = await this.index.getRoot()
+  return root
 }
 
-iterator(order_by, prove = false) {
-   return this.index.iterator(direction, prove)
+iterator(direction, prove = false) {
+   return this.index.iterator(true, direction)
 }
 
 async getRoot() {
@@ -236,14 +238,33 @@ async prove(key) {
   return {proof: proof, root: root}
 }
 
+async stat() {
+  let stats = await this.getRoot()
+
+  let response = {
+    stats: stats,
+    proof: stats,
+    root: stats,
+  }
+  return response
+}
+
+//filter
+
+async scan(first, last, limit, prove) {
+  let finish = Math.max(first, last)
+  let direction = (finish == last)
+  return this.range(0, finish, direction, 0, limit, prove);
+}
+
 async range(start, finish, direction, offset = 0, limit = 100, prove = false) {
-  const iter = this.index.iterator();
+  const iter = this.iterator(direction, prove);
   var count = 0;
   var array = new Array();
-  while (await iter.next()) {
+  while (array.length < limit && await iter.next()) {
     if (count <= finish && count >= start) {
       const {key, value} = iter;
-      var prove = ""
+      var proof = ""
       var root = ""
       if (prove) {
         let p = await this.prove(key)
@@ -258,14 +279,25 @@ async range(start, finish, direction, offset = 0, limit = 100, prove = false) {
   return array
 }
 
-async filter(filter_list, direction, offset = 0, limit = 100, prove = false) {
-  const iter = this.index.iterator();
+//range between keys
+async query(searchText, prove= false) {
+  //parse query
+  let filter_list = ""
+  let direction = false
+  let limit = 100
+  let offset = 0
+  return filter(filter_list, direction, limit, prove, offset)
+}
+
+async filter(filter_list, direction, limit = 100, prove = false, offset = 0) {
+  const iter = this.iterator(direction, prove);
   var array = new Array();
   let pred = this._create_filter(filter_list)
+  //limit
   while (await iter.next()) {
       const {key, value} = iter;
       if (pred(key, value)) {
-        var prove = ""
+        var proof = ""
         if (prove) {
           let p = await this.prove(key)
           proof = p.proof
