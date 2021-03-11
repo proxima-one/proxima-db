@@ -224,7 +224,11 @@ async compact() {
 }
 
 iterator(direction, prove = false) {
-   return this.index.iterator(true, direction)
+    let table = this.index
+    if (this.batching) {
+      table = this.batch
+    }
+   return table.iterator(true, direction)
 }
 
 async getRoot() {
@@ -254,7 +258,8 @@ async stat() {
 async scan(first, last, limit, prove) {
   let finish = Math.max(first, last)
   let direction = (finish == last)
-  return this.range(0, finish, direction, 0, limit, prove);
+  let resp = await this.range(0, finish, direction, 0, limit, prove);
+  return resp
 }
 
 async range(start, finish, direction, offset = 0, limit = 100, prove = false) {
@@ -282,7 +287,7 @@ async range(start, finish, direction, offset = 0, limit = 100, prove = false) {
 //range between keys
 async query(searchText, prove= false) {
   //parse query
-  let filter_list = ""
+  let filter_list = searchText
   let direction = false
   let limit = 100
   let offset = 0
