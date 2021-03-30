@@ -1,6 +1,6 @@
 {
   "name": "proxima-db",
-  "version": "0.6.34",
+  "version": "0.6.42",
   "description": "Cryptographically provable database",
   "keywords": [
     "net",
@@ -33,6 +33,7 @@
     "eslint": "^5.16.0",
     "istanbul": "^0.4.5",
     "mocha": "^6.1.4",
+    "random-values-generator": "^0.26.0",
     "randombytes": "^2.1.0"
   },
   "devDependencies": {

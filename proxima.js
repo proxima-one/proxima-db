@@ -146,8 +146,7 @@ async get(key, prove = false) {
 
 async batch(entries) {
   let proofs = []
-  let response
-  this.transaction()
+  let response = this.transaction()
   for (entry in entries) {
     response = await this.put(entry.key, entry.value, entry.prove)
     proofs.push(response)
@@ -257,14 +256,14 @@ async stat() {
 
 async scan(first, last, limit, prove) {
   let finish = Math.max(first, last)
-  let direction = (finish == last)
+  let direction = (finish != last)
   let resp = await this.range(0, finish, direction, 0, limit, prove);
   return resp
 }
 
 async range(start, finish, direction, offset = 0, limit = 100, prove = false) {
   const iter = this.iterator(direction, prove);
-  var count = 0;
+  let count = 0;
   var array = new Array();
   while (array.length < limit && await iter.next()) {
     if (count <= finish && count >= start) {
@@ -285,24 +284,33 @@ async range(start, finish, direction, offset = 0, limit = 100, prove = false) {
 }
 
 //range between keys
-async query(searchText, prove= false) {
+async query(searchText, limit = 10, prove = false) {
   //parse query
-  let filter_list = searchText
+  let filter_list = JSON.parse(searchText)
+  //console.log(filter_list)
+  //json parse
   let direction = false
-  let limit = 100
-  let offset = 0
-  return filter(filter_list, direction, limit, prove, offset)
+  let d =  await this.filter(filter_list, direction, limit, prove, 0)
+  return  d
 }
 
-async filter(filter_list, direction, limit = 100, prove = false, offset = 0) {
-  const iter = this.iterator(direction, prove);
+async filter(filter_list, direction, limit = 10, prove = false, offset = 0) {
+  const filterIter = this.iterator(direction, prove);
+  //console.log(iter)
+  //console.log(filter_list)
   var array = new Array();
-  let pred = this._create_filter(filter_list)
+  let pred = await this._create_filter(filter_list)
+
   //limit
-  while (await iter.next()) {
-      const {key, value} = iter;
-      if (pred(key, value)) {
+  while (array.length < limit && await filterIter.next()) {
+    //console.log("value ", filterIter["value"])
+      //console.log(filterIter)
+      const {key, value} = filterIter;
+
+      //console.log("Key: ", key)
+      if (key != null && value != null && pred(key, value)) {
         var proof = ""
+        var root = ""
         if (prove) {
           let p = await this.prove(key)
           proof = p.proof
@@ -333,26 +341,57 @@ _not_ends_with
 
 
 async _create_filter(filter_list) {
+
   let filter_funct = (key, value) => {
-    let v = JSON.parse(pack(value))
-    for (i = 0; i < filter_list.length; i++) {
+    //console.log("VALUE: ", value.toString())
+    let v = JSON.parse(value.toString())
+    for (let i = 0; i < filter_list.length; i++) {
+      let filter = filter_list[i]
+      //let filterExpression
       switch (filter['expression']) {
-        case ">":
-          return v[filter['name']] > filter['value']
-        case ">=":
-          return v[filter['name']] >= filter['value']
+        case '>':
+          return v[filter.name] > filter.value
+        case '>=':
+          return v[filter.name] >= filter.value
         case "<":
-          return v[filter['name']] < filter['value']
+          return v[filter.name] < filter.value
         case "<=":
-          return v[filter['name']] <= filter['value']
+          return v[filter.name] <= filter.value
         case "=":
-          return v[filter['name']] == filter['value']
+          return v[filter.name] == filter.value
       }
     }
   }
   return filter_funct
 }
+
 }
 
 
+function unpack(str, m = -1) {
+    let n = m/2;
+    //console.log(str)
+    if (Buffer.isBuffer(str)) return str
+    let l = str.length;
+    if (m == -1) {
+      n = l;
+    }
+    str = str.padStart(n-l, ' ');
+
+    var bytes = [];
+    for(var i = 0; i < n; i++) {
+        var char = str.charCodeAt(i);
+        bytes.push(char >>> 8, char & 0xFF);
+    }
+    return new Buffer.from(bytes);
+}
+
+
+function pack(bytes) {
+    var chars = [];
+    for(var i = 0, n = bytes.length; i < n;) {
+        chars.push(((bytes[i++] & 0xff) << 8) | (bytes[i++] & 0xff));
+    }
+    return String.fromCharCode.apply(null, chars);
+}
 module.exports = {Database, Table}
