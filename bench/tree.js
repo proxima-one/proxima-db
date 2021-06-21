@@ -164,9 +164,6 @@ async function doProof(tree, i, key, expect) {
     i, proof.getSize(tree.hash, tree.bits));
 }
 
-
-
-
 async function bench(prefix) {
   const tree = new Tree(blake2b, 256, prefix);
   const items = [];
@@ -175,7 +172,6 @@ async function bench(prefix) {
 
   let batch = tree.batch();
 
-  //Random Reads and Writes
   for (let i = 0; i < 100000; i++) {
     const r = Math.random() > 0.5;
     const key = crypto.randomBytes(tree.bits >>> 3);
