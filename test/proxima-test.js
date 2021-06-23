@@ -189,7 +189,7 @@ function random(min, max) {
     let prove = false
 
     let queryText = generateRandomSearchQueryText(entityStruct)
-    console.log(queryText)
+    //console.log(queryText)
     let resp = await table.query(queryText, limit, prove)
     //assert equal
     //console.log(queryText)

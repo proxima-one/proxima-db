@@ -7,6 +7,11 @@ const { Tree, Proof } = require("./optimized");
 const ASC = false;
 const DESC = true;
 
+/*
+Worker threads.
+
+*/
+
 class Database {
   constructor(hash = null, bits = null, dbPath = null) {
     this.hash = hash || BLAKE2b;
@@ -36,7 +41,7 @@ class Database {
   }
 
   async batch(entries) {
-    let map = {};
+    const map = {};
     let responses = [];
     for (const entry in entries) {
       if (!(entry.name in map)) {
@@ -64,14 +69,15 @@ class Database {
 
   async close(name) {
     if (this.contains(name) && this.tables[name].isOpen()) {
-      let response = await this.tables[name].close();
+      const response = await this.tables[name].close();
       return response;
     }
     return true;
   }
 
   async remove(name) {
-    let resp = await this.close(name);
+    const resp = await this.close(name);
+    // eslint-disable-next-line no-undef
     this.tables = _.omit(this.tables, name);
     return resp;
   }
@@ -100,22 +106,30 @@ class Table {
   */
 
   constructor(hash, bits, path) {
-    var hash_function = hash_function || BLAKE2b;
-    var num_bits = bits || 256;
-    var db_path = path || "./DB/";
-    this.index = new Tree(hash_function, num_bits, db_path);
+    const hash_function = hash || BLAKE2b;
+    const num_bits = bits || 256;
+    const db_path = path || "./DB/";
+    this.index = new Tree(hash, num_bits, db_path);
     this.batch = null;
     this.batching = false;
   }
 
   async open() {
-    let resp = await this.index.open();
-    return resp;
+    if (this.isClosed()) {
+      const resp = await this.index.open();
+      return resp;
+    } else {
+      return this.isOpen();
+    }
   }
 
   async close() {
-    let resp = await this.index.close();
+    if (this.isOpen()) {
+    const resp = await this.index.close();
     return resp;
+    } else {
+      return this.isClosed();
+    }
   }
 
   isOpen() {
@@ -131,11 +145,11 @@ class Table {
     if (this.batching) {
       table = this.batch;
     }
-    let value = await table.get(key);
+    const value = await table.get(key);
     let proof = "";
     let root = "";
     if (prove) {
-      let p = await this.prove(key);
+      const p = await this.prove(key);
       proof = p.proof || "";
       root = p.root.data || "";
       //proof.key = key
@@ -145,10 +159,40 @@ class Table {
     }
   }
 
+  async bulkWrite(writeOperations) {
+    let responses = [];
+    let response = this.transaction();
+    var resp
+    for (const operation in writeOperations) {
+      switch (operation.type) {
+        case "UPDATE":
+          resp = await this.put(operation.key, operation.value, operation.prove);
+          responses.push(resp);
+          break;
+        case "CREATE":
+          resp = await this.put(operation.key, operation.value, operation.prove);
+          responses.push(resp);
+          break;
+        case "DELETE": 
+          resp = await this.remove(operation.key, operation.prove);
+          responses.push(resp)
+          break
+        default: 
+          throw new Error(`Operation not implemented: ${operation.type}`);
+      }
+    }
+    await this.commit();
+    return responses;
+  }
+
+  /*
+    Todo: batchRead
+  */
+
   async batch(entries) {
     let proofs = [];
     let response = this.transaction();
-    for (entry in entries) {
+    for (const entry in entries) {
       response = await this.put(entry.key, entry.value, entry.prove);
       proofs.push(response);
     }
@@ -158,6 +202,9 @@ class Table {
 
   async put(key, value, prove = false) {
     let table = this.index;
+    let proof = "";
+    let root = "";
+    try {
     if (this.batching) {
       table = this.batch;
       await table.insert(key, value);
@@ -167,17 +214,17 @@ class Table {
       await table.insert(key, value);
       await this.commit();
     }
-    let proof = "";
-    let root = "";
     if (prove) {
       let p = await this.prove(key);
       root = p.root.data || "";
       proof = p.proof || "";
-      //proof.key = key
-      return { proof: proof, root: root };
-    } else {
-      return { proof: proof, root: root };
     }
+  } catch(e) {
+    console.log(`Error at put: ${e}`)
+    return {data: {proof: proof, root: root}, code: `Error at put: ${e}`}
+  } finally {
+    return {data: {key: key, value: value, proof: proof, root: root}, code: "INSERT"}
+  }
   }
 
   async remove(key, prove = false) {
@@ -205,9 +252,12 @@ class Table {
     return this.index.snapshot(hash);
   }
 
+  //wait until the last one is over
   transaction() {
+    if (!this.batching) {
     this.batch = this.index.batch();
     this.batching = true;
+    }
   }
 
   async commit() {
@@ -223,8 +273,8 @@ class Table {
   }
 
   async compact() {
-    let resp = await this.index.compact();
-    let root = await this.index.getRoot();
+    const resp = await this.index.compact();
+    const root = await this.index.getRoot();
     return root;
   }
 
@@ -236,21 +286,38 @@ class Table {
     return table.iterator(true, direction);
   }
 
+  workingIndex() {
+    if (this.batching && this.batch) {
+      return this.batch
+    } else {
+    return this.index
+    }
+  }
+
+  async getWorkingRoot() {
+    if (this.batching) {
+      return await this.batch.getRoot();
+    }
+    return await this.index.getRoot();
+  }
+
   async getRoot() {
-    let root = await this.index.getRoot();
+    const root = await this.index.getRoot();
     return root;
   }
 
   async prove(key) {
-    let proof = await this.index.prove(key);
-    let root = await this.getRoot();
+    const proof = await this.getWorkingIndex().prove(key);
+    const root = await this.getWorkingRoot();
     return { proof: proof, root: root };
   }
 
   async stat() {
-    let stats = await this.getRoot();
+    const stats = await this.getWorkingRoot();
+    //size
+    //table 
 
-    let response = {
+    const response = {
       stats: stats,
       proof: stats,
       root: stats
@@ -294,8 +361,16 @@ class Table {
     return array;
   }
 
+  parseFilter(filterRaw) {
+    try {
+      return JSON.parse(filterRaw)
+    } catch(e) {
+      return filterRaw
+    }
+  }
+
   async query(searchText, limit = 10, prove = false) {
-    const filterList = JSON.parse(searchText);
+    const filterList = this.parseFilter(searchText);
     const direction = false;
     const d = await this.filter(filterList, direction, limit, prove, 0);
     return d;
@@ -322,6 +397,14 @@ class Table {
     return array;
   }
 
+  // class TableStats {
+  //   size, 
+  //   history, 
+  //   root, 
+  //   opeation,
+  //   operationNumber,
+  // }
+
   /*
 _not
 _gt
@@ -338,10 +421,19 @@ _not_starts_with
 _not_ends_with
 */
 
+parseFilterValue(valueRaw) {
+  try {
+  //console.log("VALUE: ", valueRaw.toString())
+    JSON.parse(valueRaw.toString());
+  } catch(e) {
+    return valueRaw;
+  }
+}
+
   async _create_filter(filter_list) {
     let filter_funct = (key, value) => {
-      //console.log("VALUE: ", value.toString())
-      let v = JSON.parse(value.toString());
+      
+      let v = this.parseFilterValue(value)
       for (let i = 0; i < filter_list.length; i++) {
         let filter = filter_list[i];
         //let filterExpression
