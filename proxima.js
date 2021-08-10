@@ -1,11 +1,12 @@
 // eslint-disable-next-line strict
-const bcrypto = require("bcrypto");
+const bcrypto = require('bcrypto');
 const { BLAKE2b } = bcrypto;
-const assert = require("bsert");
-const { Tree, Proof } = require("./optimized");
+const { Tree} = require('./optimized');
+const _ = require('lodash');
 
-const ASC = false;
-const DESC = true;
+// const ASC = false;
+// const DESC = true;
+// const assert = require("bsert");
 
 /*
 Worker threads.
@@ -16,7 +17,7 @@ class Database {
   constructor(hash = null, bits = null, dbPath = null) {
     this.hash = hash || BLAKE2b;
     this.bits = bits || 256;
-    this.db_path = dbPath || "./DB/";
+    this.db_path = dbPath || './DB/';
     this.tables = {};
   }
 
@@ -25,7 +26,6 @@ class Database {
   }
 
   async get(name) {
-    //TODO open and get the table 
     const table = await this.open(name);
     return table;
   }
@@ -51,6 +51,7 @@ class Database {
     }
     let response;
     let table;
+    // eslint-disable-next-line no-unused-vars
     for (const [key, value] in map) {
       table = await this.get(key);
       response = await table.batch(entries);
@@ -83,6 +84,14 @@ class Database {
   }
 }
 
+// class Logger {
+
+// }
+
+// class SnapshotOperator {
+
+// }
+
 class Table {
   /*
     Options: File...
@@ -106,10 +115,10 @@ class Table {
   */
 
   constructor(hash, bits, path) {
-    const hash_function = hash || BLAKE2b;
-    const num_bits = bits || 256;
-    const db_path = path || "./DB/";
-    this.index = new Tree(hash, num_bits, db_path);
+    const hashFunction = hash || BLAKE2b;
+    const numBits = bits || 256;
+    const dbPath = path || './DB/';
+    this.index = new Tree(hashFunction, numBits, dbPath);
     this.batch = null;
     this.batching = false;
   }
@@ -146,13 +155,12 @@ class Table {
       table = this.batch;
     }
     const value = await table.get(key);
-    let proof = "";
-    let root = "";
+    let proof = '';
+    let root = '';
     if (prove) {
       const p = await this.prove(key);
-      proof = p.proof || "";
-      root = p.root.data || "";
-      //proof.key = key
+      proof = p.proof || '';
+      root = p.root.data || '';
       return { value: value, proof: proof, root: root };
     } else {
       return { value: value, proof: proof, root: root };
@@ -160,24 +168,27 @@ class Table {
   }
 
   async bulkWrite(writeOperations) {
-    let responses = [];
-    let response = this.transaction();
-    var resp
+    const responses = new Array();
+    this.transaction();
+    // eslint-disable-next-line no-var
+    var resp;
     for (const operation in writeOperations) {
       switch (operation.type) {
-        case "UPDATE":
-          resp = await this.put(operation.key, operation.value, operation.prove);
+        case 'UPDATE':
+          resp = await this.put(operation.key, operation.value,
+             operation.prove);
           responses.push(resp);
           break;
-        case "CREATE":
-          resp = await this.put(operation.key, operation.value, operation.prove);
+        case 'CREATE':
+          resp = await this.put(operation.key, operation.value,
+             operation.prove);
           responses.push(resp);
           break;
-        case "DELETE": 
+        case 'DELETE':
           resp = await this.remove(operation.key, operation.prove);
-          responses.push(resp)
-          break
-        default: 
+          responses.push(resp);
+          break;
+        default:
           throw new Error(`Operation not implemented: ${operation.type}`);
       }
     }
@@ -185,12 +196,8 @@ class Table {
     return responses;
   }
 
-  /*
-    Todo: batchRead
-  */
-
   async batch(entries) {
-    let proofs = [];
+    const proofs = new Array();
     let response = this.transaction();
     for (const entry in entries) {
       response = await this.put(entry.key, entry.value, entry.prove);
@@ -202,8 +209,8 @@ class Table {
 
   async put(key, value, prove = false) {
     let table = this.index;
-    let proof = "";
-    let root = "";
+    let proof = '';
+    let root = '';
     try {
     if (this.batching) {
       table = this.batch;
@@ -215,15 +222,15 @@ class Table {
       await this.commit();
     }
     if (prove) {
-      let p = await this.prove(key);
-      root = p.root.data || "";
-      proof = p.proof || "";
+      const p = await this.prove(key);
+      root = p.root.data || '';
+      proof = p.proof || '';
     }
+  return {data: {key: key, value: value, proof: proof, root: root},
+      code: 'SUCCESS'};
   } catch(e) {
-    console.log(`Error at put: ${e}`)
-    return {data: {proof: proof, root: root}, code: `Error at put: ${e}`}
-  } finally {
-    return {data: {key: key, value: value, proof: proof, root: root}, code: "INSERT"}
+    console.log(`Error at put: ${e}`);
+    return {data: {proof: proof, root: root}, code: `Error at put: ${e}`};
   }
   }
 
@@ -238,12 +245,12 @@ class Table {
       await table.remove(key);
       await this.commit();
     }
-    let proof = "";
-    let root = "";
+    let proof = '';
+    let root = '';
     if (prove) {
-      let p = await this.prove(key);
-      proof = p.proof || "";
-      root = p.root.data || "";
+      const p = await this.prove(key);
+      proof = p.proof || '';
+      root = p.root.data || '';
     }
     return { proof: proof, root: root };
   }
@@ -252,7 +259,6 @@ class Table {
     return this.index.snapshot(hash);
   }
 
-  //wait until the last one is over
   transaction() {
     if (!this.batching) {
     this.batch = this.index.batch();
@@ -273,7 +279,7 @@ class Table {
   }
 
   async compact() {
-    const resp = await this.index.compact();
+    await this.index.compact();
     const root = await this.index.getRoot();
     return root;
   }
@@ -286,11 +292,11 @@ class Table {
     return table.iterator(true, direction);
   }
 
-  workingIndex() {
+  getWorkingIndex() {
     if (this.batching && this.batch) {
-      return this.batch
+      return this.batch;
     } else {
-    return this.index
+    return this.index;
     }
   }
 
@@ -314,9 +320,6 @@ class Table {
 
   async stat() {
     const stats = await this.getWorkingRoot();
-    //size
-    //table 
-
     const response = {
       stats: stats,
       proof: stats,
@@ -346,13 +349,12 @@ class Table {
     while (array.length < limit && (await iter.next())) {
       if (count <= finish && count >= start) {
         const { key, value } = iter;
-        let proof = "";
-        let root = "";
+        let proof = '';
+        let root = '';
         if (prove) {
-          let p = await this.prove(key);
+          const p = await this.prove(key);
           proof = p.proof;
           root = p.root.data;
-          //proof.key = key
         }
         array.push({ value: value, proof: proof, root: root });
       }
@@ -363,9 +365,9 @@ class Table {
 
   parseFilter(filterRaw) {
     try {
-      return JSON.parse(filterRaw)
+      return JSON.parse(filterRaw);
     } catch(e) {
-      return filterRaw
+      return filterRaw;
     }
   }
 
@@ -379,17 +381,16 @@ class Table {
   async filter(filterList, direction, limit = 10, prove = false, offset = 0) {
     const filterIter = this.iterator(direction, prove);
     const array = new Array();
-    const pred = await this._create_filter(filterList);
+    const pred = await this._createFilter(filterList);
     while (array.length < limit && (await filterIter.next())) {
       const { key, value } = filterIter;
       if (key != null && value != null && pred(key, value)) {
-        let proof = "";
-        let root = "";
+        let proof = '';
+        let root = '';
         if (prove) {
-          let p = await this.prove(key);
+          const p = await this.prove(key);
           proof = p.proof;
           root = p.root.data;
-          //proof.key = key
         }
         array.push({ value: value, proof: proof, root: root });
       }
@@ -398,10 +399,10 @@ class Table {
   }
 
   // class TableStats {
-  //   size, 
-  //   history, 
-  //   root, 
-  //   opeation,
+  //   size
+  //   history
+  //   root
+  //   opeation
   //   operationNumber,
   // }
 
@@ -423,61 +424,59 @@ _not_ends_with
 
 parseFilterValue(valueRaw) {
   try {
-  //console.log("VALUE: ", valueRaw.toString())
-    JSON.parse(valueRaw.toString());
+    return JSON.parse(valueRaw.toString());
   } catch(e) {
     return valueRaw;
   }
 }
 
-  async _create_filter(filter_list) {
-    let filter_funct = (key, value) => {
-      
-      let v = this.parseFilterValue(value)
-      for (let i = 0; i < filter_list.length; i++) {
-        let filter = filter_list[i];
-        //let filterExpression
-        switch (filter["expression"]) {
-          case ">":
+  async _createFilter(filterList) {
+    // eslint-disable-next-line consistent-return
+    const filterFunct = (key, value) => {
+      const v = this.parseFilterValue(value);
+      for (let i = 0; i < filterList.length; i++) {
+        const filter = filterList[i];
+        switch (filter['expression']) {
+          case '>':
             return v[filter.name] > filter.value;
-          case ">=":
+          case '>=':
             return v[filter.name] >= filter.value;
-          case "<":
+          case '<':
             return v[filter.name] < filter.value;
-          case "<=":
+          case '<=':
             return v[filter.name] <= filter.value;
-          case "=":
-            return v[filter.name] == filter.value;
+          case '=':
+            return v[filter.name] === filter.value;
         }
       }
     };
-    return filter_funct;
+    return filterFunct;
   }
 }
 
-function unpack(str, m = -1) {
-  let n = m / 2;
-  //console.log(str)
-  if (Buffer.isBuffer(str)) return str;
-  let l = str.length;
-  if (m == -1) {
-    n = l;
-  }
-  str = str.padStart(n - l, " ");
+// function unpack(str, m = -1) {
+//   let n = m / 2;
+//   //console.log(str)
+//   if (Buffer.isBuffer(str)) return str;
+//   let l = str.length;
+//   if (m == -1) {
+//     n = l;
+//   }
+//   str = str.padStart(n - l, " ");
 
-  var bytes = [];
-  for (var i = 0; i < n; i++) {
-    var char = str.charCodeAt(i);
-    bytes.push(char >>> 8, char & 0xff);
-  }
-  return new Buffer.from(bytes);
-}
+//   var bytes = [];
+//   for (var i = 0; i < n; i++) {
+//     var char = str.charCodeAt(i);
+//     bytes.push(char >>> 8, char & 0xff);
+//   }
+//   return new Buffer.from(bytes);
+// }
 
-function pack(bytes) {
-  var chars = [];
-  for (var i = 0, n = bytes.length; i < n; ) {
-    chars.push(((bytes[i++] & 0xff) << 8) | (bytes[i++] & 0xff));
-  }
-  return String.fromCharCode.apply(null, chars);
-}
+// function pack(bytes) {
+//   var chars = [];
+//   for (var i = 0, n = bytes.length; i < n; ) {
+//     chars.push(((bytes[i++] & 0xff) << 8) | (bytes[i++] & 0xff));
+//   }
+//   return String.fromCharCode.apply(null, chars);
+// }
 module.exports = { Database, Table };

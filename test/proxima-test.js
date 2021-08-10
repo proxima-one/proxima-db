@@ -1,9 +1,11 @@
+/* eslint-disable */
 const assert = require('bsert');
 const bcrypto = require('bcrypto');
 const {BLAKE2b} = bcrypto;
-const {Database, Table} = require("../proxima")
+const {Database, Table} = require('../proxima')
 const randomBytes = require('randombytes');
 const Any = require('random-values-generator');
+const { randomString } = require('../lib/common');
 
 function random(min, max) {
   return Math.floor(Math.random() * (max - min)) + min;
@@ -43,14 +45,6 @@ function random(min, max) {
       }
       return String.fromCharCode.apply(null, chars);
   }
-
-  //query
-
-  //commit,insert, checkout
-
-  //stats
-
-  //scans
 
   async function multiple_table_access_test() {
     let name = "newtable"
@@ -146,7 +140,6 @@ function random(min, max) {
     //let entries = await batch_insert(table, 1000)
 
     for (const [key, value] of entries.entries()) {
-      //console.log(key.length)
       await table.put(key, value, false)
       //stats = await table.stat()
     }
@@ -163,6 +156,22 @@ function random(min, max) {
     let compactResponse = await table.compact()
     stats = await table.stat()
     await table.close()
+  }
+
+  //updateOperation()
+
+  async function bulkWriteTest() {
+      //cleanup  database/table
+      let table_name = randomString()
+      let db = create_db()
+      let table = await db.open(table_name)
+      let stats = await table.stat()
+      let entryStruct = [{"name":"id","type":"ID"},{"name":"pools","type":"Float"},{"name":"numPools","type":"Int"}, {"name":"numUsers","type":"Int"},{"name":"numActiveUsers","type":"Int"}, {"name":"numFunders","type":"Int"}]
+      table  = await db.get(table_name)
+      let entries = await random_entries(1000, entryStruct)
+      //entryToBulkWriteOperations
+      //removes, deletes, and updates 
+      //then check for the correct set of entries
   }
 
   async function scanTest(table, entries) {
@@ -205,7 +214,6 @@ function random(min, max) {
     let maxFilters = 3
     let numFilters = 0
     for (var varStruct of entityStruct) {
-        //console.log(varStruct)
         searchFilter  = generateRandomFilter(varStruct)//generate search test
 
         if (searchFilter != "" && searchFilter.expression != "" && (Math.random() < 0.5)) {
@@ -217,9 +225,6 @@ function random(min, max) {
           return JSON.stringify(searchFilterList)
         }
     }
-
-
-    //console.log(searchFilterList)
     return JSON.stringify(searchFilterList)
   }
 
@@ -348,6 +353,10 @@ function generateRandomFilter(varStruct, args = {min: 1, max: 10}) {
 
     it('should test table access', async() => {
       await multiple_table_access_test();
+    });
+
+    it('should test bulkWrite', async () => {
+      await bulkWriteTest();
     });
 
     it('should test advanced', async () => {
