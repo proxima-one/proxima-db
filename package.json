@@ -1,6 +1,6 @@
 {
-  "name": "proxima-db",
-  "version": "0.6.45",
+  "name": "@proximaone/proxima-db",
+  "version": "0.6.46",
   "description": "Cryptographically provable database",
   "keywords": [
     "net",
