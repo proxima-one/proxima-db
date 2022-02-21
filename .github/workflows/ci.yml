@@ -1,0 +1,16 @@
+name: build & test
+on:
+  pull_request:
+    types: [opened, synchronize]
+jobs:
+  quick-check:
+    runs-on: ubuntu-latest
+    container: node:14-alpine
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Install
+        run: yarn install
+        
+      - name: Server Test
+        run: yarn test

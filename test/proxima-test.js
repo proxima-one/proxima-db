@@ -143,12 +143,13 @@ function random(min, max) {
       await table.put(key, value, false)
       //stats = await table.stat()
     }
-
+    console.log(entries)
 
 
     for (var i = 0; i < 10; i++) {
       //let r = await scanTest(table, entries)
       let s = await searchTest(table, entries, entryStruct)
+      console.log(s)
     }
 
     let h = await table.commit()
@@ -249,8 +250,8 @@ function random(min, max) {
   }
 
   let r = {
-    key: unpack(id),
-    value: unpack(JSON.stringify(newRandomEntity)),
+    key: Buffer.from(unpack(id)),
+    value: Buffer.from(JSON.stringify(newRandomEntity)),
   }
     //
     return r

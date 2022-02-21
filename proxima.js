@@ -8,11 +8,6 @@ const _ = require('lodash');
 // const DESC = true;
 // const assert = require("bsert");
 
-/*
-Worker threads.
-
-*/
-
 class Database {
   constructor(hash = null, bits = null, dbPath = null) {
     this.hash = hash || BLAKE2b;
@@ -211,6 +206,7 @@ class Table {
     let table = this.index;
     let proof = '';
     let root = '';
+    console.log(value)
     try {
     if (this.batching) {
       table = this.batch;
@@ -367,6 +363,7 @@ class Table {
     try {
       return JSON.parse(filterRaw);
     } catch(e) {
+      console.log("Issues parsing the filter values: " + filterRaw.toString())
       return filterRaw;
     }
   }
@@ -426,7 +423,9 @@ parseFilterValue(valueRaw) {
   try {
     return JSON.parse(valueRaw.toString());
   } catch(e) {
-    return valueRaw;
+    console.log("Parsing issue: " + e.message)
+    console.log(valueRaw)
+    return JSON.parse(valueRaw);
   }
 }
 
